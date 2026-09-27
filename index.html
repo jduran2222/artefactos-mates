@@ -14,24 +14,35 @@
   .wrap{ max-width:720px; margin:0 auto; }
   h1{ font-size:1.6rem; margin:0 0 4px; }
   .sub{ color:#5a6b80; margin:0 0 24px; font-size:0.98rem; }
-  .card{
-    background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(20,40,70,.10);
-    padding:18px 20px; margin-bottom:16px; display:flex; gap:16px; align-items:center;
-    justify-content:space-between; flex-wrap:wrap;
+  a.card{
+    display:flex; gap:18px; align-items:center; background:#fff;
+    border-radius:18px; box-shadow:0 6px 24px rgba(20,40,70,.10);
+    padding:16px; margin-bottom:18px; text-decoration:none; color:inherit;
+    transition:transform .12s ease, box-shadow .12s ease; flex-wrap:wrap;
   }
-  .card .info{ flex:1 1 280px; min-width:240px; }
-  .card .head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-  .card h2{ margin:0; font-size:1.15rem; }
-  .card .date{ color:#8a97a8; font-size:0.82rem; font-weight:600; white-space:nowrap; }
-  .card p{ margin:8px 0 0; color:#5a6b80; font-size:0.92rem; }
-  .card .tag{ font-size:0.75rem; font-weight:700; color:#0d47a1; background:#e3f2fd;
+  a.card:hover{ transform:translateY(-3px); box-shadow:0 12px 32px rgba(20,40,70,.16); }
+  .thumb{
+    width:150px; height:150px; object-fit:cover; border-radius:12px; flex-shrink:0;
+    background:#eef2f7;
+  }
+  a.card .info{ flex:1 1 280px; min-width:220px; }
+  .head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .head h2{ margin:0; font-size:1.2rem; }
+  .date{ color:#8a97a8; font-size:0.82rem; font-weight:600; white-space:nowrap; }
+  .info p{ margin:8px 0 0; color:#5a6b80; font-size:0.92rem; }
+  .tag{ font-size:0.75rem; font-weight:700; color:#0d47a1; background:#e3f2fd;
     border-radius:999px; padding:3px 10px; display:inline-block; margin-top:10px; }
-  a.btn{
-    display:inline-block; background:var(--azul); color:#fff; text-decoration:none;
-    font-weight:700; padding:11px 18px; border-radius:999px; white-space:nowrap;
+  .go{
+    flex-shrink:0; background:var(--azul); color:#fff; font-weight:700;
+    padding:11px 16px; border-radius:999px; white-space:nowrap;
   }
-  a.btn:hover{ background:#1565c0; }
+  a.card:hover .go{ background:#1565c0; }
   footer{ text-align:center; color:#8a97a8; font-size:0.82rem; margin-top:28px; }
+  @media (max-width:520px){
+    a.card{ flex-direction:column; align-items:stretch; }
+    .thumb{ width:100%; height:auto; aspect-ratio:16/10; }
+    .go{ align-self:flex-start; }
+  }
 </style>
 </head>
 <body>
@@ -41,7 +52,8 @@
 
   <!-- ⚠️ NUEVOS ARTEFACTOS ARRIBA (orden por fecha inversa) -->
 
-  <div class="card">
+  <a class="card" href="arco_capaz_interactivo.html">
+    <img class="thumb" src="arco_capaz_thumb.png" alt="El arco capaz">
     <div class="info">
       <div class="head">
         <h2>El arco capaz</h2>
@@ -51,8 +63,8 @@
       Mueve el deslizador para cambiar α y arrastra el punto P sobre el arco.</p>
       <span class="tag">Geometría · ángulos · lugar geométrico</span>
     </div>
-    <a class="btn" href="arco_capaz_interactivo.html">Abrir →</a>
-  </div>
+    <span class="go">Abrir →</span>
+  </a>
 
   <footer>Más artefactos próximamente.</footer>
 </div>
