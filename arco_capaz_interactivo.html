@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arco capaz — lugar geométrico interactivo</title>
+<style>
+  :root { --azul:#1e88e5; --naranja:#f57c00; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+    background:#f4f7fb; color:#1a2433; display:flex; flex-direction:column; align-items:center;
+    padding:16px; min-height:100vh;
+  }
+  h1 { font-size:1.4rem; margin:4px 0 2px; text-align:center; }
+  .sub { font-size:0.95rem; color:#5a6b80; text-align:center; margin-bottom:8px; max-width:660px; }
+  .card {
+    background:#fff; border-radius:16px; box-shadow:0 6px 24px rgba(20,40,70,.10);
+    padding:16px; width:100%; max-width:760px;
+  }
+  canvas { display:block; width:100%; height:auto; touch-action:none; cursor:crosshair; }
+  .controls { display:flex; align-items:center; gap:14px; margin-top:14px; flex-wrap:wrap; }
+  .slider-wrap { flex:1 1 260px; min-width:220px; }
+  .slider-wrap label { display:flex; justify-content:space-between; font-weight:600; margin-bottom:6px; }
+  #alphaVal { font-size:1.5rem; font-weight:800; color:var(--azul); }
+  input[type=range] { width:100%; }
+  .badge {
+    padding:8px 14px; border-radius:999px; font-weight:700; font-size:0.95rem;
+    background:#eef2f7; color:#33455c; white-space:nowrap;
+  }
+  .badge.agudo   { background:#e3f2fd; color:#0d47a1; }
+  .badge.recto   { background:#fff3e0; color:#e65100; }
+  .badge.obtuso  { background:#fbe9e7; color:#b71c1c; }
+  .hint { font-size:0.85rem; color:#8a97a8; text-align:center; margin-top:8px; }
+  .leyenda { display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:0.85rem; color:#44536a; flex-wrap:wrap;}
+  .leyenda span i { display:inline-block; width:14px; height:14px; border-radius:50%; margin-right:5px; vertical-align:-2px;}
+</style>
+</head>
+<body>
+  <h1>El arco capaz (lugar geométrico)</h1>
+  <p class="sub">Todos los puntos desde los que el segmento <b>AB</b> se ve bajo un mismo ángulo <b>α</b>.
+  Mueve el deslizador para cambiar α. Arrastra el punto <b>P</b> sobre el arco: verás que <b>∠APB</b> se mantiene igual a α.</p>
+
+  <div class="card">
+    <canvas id="cv" width="760" height="560"></canvas>
+
+    <div class="controls">
+      <div class="slider-wrap">
+        <label>Ángulo <span id="alphaVal">60°</span></label>
+        <input type="range" id="slider" min="10" max="170" value="60" step="1">
+      </div>
+      <div class="badge" id="badge">Agudo</div>
+    </div>
+
+    <div class="leyenda">
+      <span><i style="background:#1e88e5"></i> Arco superior</span>
+      <span><i style="background:#f57c00"></i> Arco inferior (simétrico)</span>
+      <span><i style="background:#d0d0d0"></i> Circunferencia completa</span>
+    </div>
+    <p class="hint" id="hint">α agudo → arco <b>mayor</b> que una semicircunferencia · α = 90° → <b>semicircunferencia</b> exacta · α obtuso → arco <b>menor</b> que una semicircunferencia.</p>
+  </div>
+
+<script>
+(function(){
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const slider = document.getElementById('slider');
+  const alphaVal = document.getElementById('alphaVal');
+  const badge = document.getElementById('badge');
+
+  // Mundo: A=(-1,0), B=(1,0). Eje Y hacia arriba.
+  const W = cv.width, H = cv.height;
+  const cxs = W/2, cys = 300;   // centro del segmento en pantalla
+  const s = 200;                // px por unidad
+  const D2R = Math.PI/180;
+
+  function toPx(x,y){ return [cxs + x*s, cys - y*s]; }
+  function toWorld(px,py){ return [(px-cxs)/s, (cys-py)/s]; }
+
+  let alphaDeg = 60;
+  let P = { x: 0, y: 1 };
+
+  function geom(aDeg){
+    const a = aDeg*D2R;
+    const R = 1/Math.sin(a);
+    const d = 1/Math.tan(a);          // centro del arco superior: (0, +d)
+    const L = 270 + aDeg;             // ángulo central de B (grados, CCW, y-up)
+    const U = 630 - aDeg;             // = (270 - aDeg) + 360  → fin del arco
+    return { R, d, L, U };
+  }
+
+  // Punto del arco superior para un ángulo central φ (grados)
+  function upperPoint(g, phiDeg){
+    const ph = phiDeg*D2R;
+    return { x: g.R*Math.cos(ph), y: g.d + g.R*Math.sin(ph) };
+  }
+
+  // Encierra el puntero al arco (superior o inferior, el más cercano)
+  function snapToArc(wx, wy){
+    const g = geom(alphaDeg);
+    let phi = Math.atan2(wy - g.d, wx)/D2R;
+    if (phi < 0) phi += 360;
+    if (phi < g.L) phi += 360;
+    if (phi > g.U) phi = g.U;
+    if (phi < g.L) phi = g.L;
+    const up = upperPoint(g, phi);
+    const lo = { x: up.x, y: -up.y };
+    const dUp = (up.x-wx)**2 + (up.y-wy)**2;
+    const dLo = (lo.x-wx)**2 + (lo.y-wy)**2;
+    return dUp <= dLo ? up : lo;
+  }
+
+  // Dibuja un arco como polilínea en coordenadas de mundo (y-up)
+  function strokeWorldArc(pts, color, width){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i=0;i<pts.length;i++){
+      const [px,py] = toPx(pts[i].x, pts[i].y);
+      if (i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+
+  function arcPoints(g, sign){
+    // sign=+1 superior, -1 inferior (espejo en y)
+    const N = 160;
+    const pts = [];
+    for (let i=0;i<=N;i++){
+      const phi = g.L + (g.U - g.L) * (i/N);
+      const p = upperPoint(g, phi);
+      pts.push({ x: p.x, y: sign*p.y });
+    }
+    return pts;
+  }
+
+  function angleAtP(P){
+    const v1x = -1 - P.x, v1y = 0 - P.y;
+    const v2x = 1 - P.x, v2y = 0 - P.y;
+    const dot = v1x*v2x + v1y*v2y;
+    const m1 = Math.hypot(v1x,v1y), m2 = Math.hypot(v2x,v2y);
+    let c = dot/(m1*m2); c = Math.max(-1, Math.min(1, c));
+    return Math.acos(c)/D2R;
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // eje horizontal suave
+    ctx.strokeStyle = '#e4e9f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(16, cys); ctx.lineTo(W-16, cys);
+    ctx.stroke();
+
+    const g = geom(alphaDeg);
+
+    // circunferencias completas tenues (superior e inferior)
+    ctx.strokeStyle = 'rgba(0,0,0,0.09)';
+    ctx.lineWidth = 1;
+    for (const sign of [1,-1]){
+      const [ox,oy] = toPx(0, sign*g.d);
+      ctx.beginPath();
+      ctx.arc(ox, oy, g.R*s, 0, 2*Math.PI);
+      ctx.stroke();
+    }
+
+    // arcos del lugar geométrico
+    strokeWorldArc(arcPoints(g, +1), '#1e88e5', 5);
+    strokeWorldArc(arcPoints(g, -1), '#f57c00', 5);
+
+    // segmento AB
+    const [ax, ay] = toPx(-1, 0);
+    const [bx, by] = toPx(1, 0);
+    ctx.strokeStyle = '#17212e';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+
+    ctx.fillStyle = '#17212e';
+    ctx.font = 'bold 20px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('A', ax-16, ay+24);
+    ctx.fillText('B', bx+16, by+24);
+
+    // lados PA y PB (punteados)
+    const [px, py] = toPx(P.x, P.y);
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(px, py); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(px, py); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // punto P
+    ctx.fillStyle = '#e53935';
+    ctx.beginPath(); ctx.arc(px, py, 9, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px system-ui';
+    ctx.textAlign = 'center'; ctx.fillText('P', px, py-14);
+
+    // indicador del ángulo en P (en coordenadas de pantalla)
+    const angA = Math.atan2(ay-py, ax-px);
+    const angB = Math.atan2(by-py, bx-px);
+    let start = angA, end = angB;
+    let sweep = ((end - start) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+    if (sweep > Math.PI){ const t=start; start=end; end=t; }
+    const rArc = 26;
+    ctx.strokeStyle = '#e53935';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(px, py, rArc, start, end, false); ctx.stroke();
+
+    const measured = Math.round(angleAtP(P));
+    const midA = (start+end)/2;
+    const lx = px + (rArc+15)*Math.cos(midA);
+    const ly = py + (rArc+15)*Math.sin(midA);
+    ctx.fillStyle = '#c62828';
+    ctx.font = 'bold 15px system-ui';
+    ctx.fillText(measured+'°', lx, ly);
+
+    // valor α
+    ctx.fillStyle = '#1e88e5';
+    ctx.font = 'bold 16px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('α = '+alphaDeg+'°', 16, 26);
+  }
+
+  function updateUI(){
+    alphaDeg = parseInt(slider.value, 10);
+    alphaVal.textContent = alphaDeg + '°';
+    let cls, txt;
+    if (alphaDeg < 90){ cls='agudo'; txt='Agudo · arco MAYOR que semicircunferencia'; }
+    else if (alphaDeg === 90){ cls='recto'; txt='Recto (90°) · ¡semicircunferencia!'; }
+    else { cls='obtuso'; txt='Obtuso · arco MENOR que semicircunferencia'; }
+    badge.className = 'badge ' + cls;
+    badge.textContent = txt;
+    P = snapToArc(P.x, P.y);
+    draw();
+  }
+
+  function pickPoint(e){
+    const rect = cv.getBoundingClientRect();
+    const pxp = (e.clientX - rect.left) * (W / rect.width);
+    const pyp = (e.clientY - rect.top) * (H / rect.height);
+    const [wx, wy] = toWorld(pxp, pyp);
+    P = snapToArc(wx, wy);
+    draw();
+  }
+  let dragging = false;
+  cv.addEventListener('pointerdown', e => { dragging = true; cv.setPointerCapture(e.pointerId); pickPoint(e); });
+  cv.addEventListener('pointermove', e => { if (dragging) pickPoint(e); });
+  cv.addEventListener('pointerup', e => { dragging = false; });
+  cv.addEventListener('pointercancel', e => { dragging = false; });
+
+  slider.addEventListener('input', updateUI);
+
+  // P inicial en el ápice del arco superior
+  const g0 = geom(60);
+  P = upperPoint(g0, 450); // φ=450° ≡ 90° → ápice
+  updateUI();
+})();
+</script>
+</body>
+</html>
